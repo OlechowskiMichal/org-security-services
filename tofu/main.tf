@@ -1,1 +1,69 @@
-# Add your infrastructure resources here
+terraform {
+  required_version = "~> 1.9"
+
+  required_providers {
+    aws = {
+      source                = "hashicorp/aws"
+      version               = "~> 5.0"
+      configuration_aliases = [aws, aws.security_audit]
+    }
+  }
+}
+
+# --------------------------------------------------------------------------
+# GuardDuty - Organization-wide, delegated to security-audit
+# --------------------------------------------------------------------------
+resource "aws_guardduty_detector" "management" {
+  enable = true
+}
+
+resource "aws_guardduty_organization_admin_account" "security_audit" {
+  admin_account_id = var.security_audit_account_id
+
+  depends_on = [aws_guardduty_detector.management]
+}
+
+resource "aws_guardduty_detector" "security_audit" {
+  provider = aws.security_audit
+  enable   = true
+}
+
+resource "aws_guardduty_organization_configuration" "this" {
+  provider = aws.security_audit
+
+  auto_enable_organization_members = "ALL"
+  detector_id                      = aws_guardduty_detector.security_audit.id
+
+  depends_on = [aws_guardduty_organization_admin_account.security_audit]
+}
+
+# --------------------------------------------------------------------------
+# Security Hub - Organization-wide, delegated to security-audit
+# --------------------------------------------------------------------------
+resource "aws_securityhub_account" "management" {}
+
+resource "aws_securityhub_organization_admin_account" "security_audit" {
+  admin_account_id = var.security_audit_account_id
+
+  depends_on = [aws_securityhub_account.management]
+}
+
+resource "aws_securityhub_account" "security_audit" {
+  provider = aws.security_audit
+}
+
+resource "aws_securityhub_organization_configuration" "this" {
+  provider = aws.security_audit
+
+  auto_enable = true
+
+  depends_on = [aws_securityhub_organization_admin_account.security_audit]
+}
+
+# --------------------------------------------------------------------------
+# IAM Access Analyzer - Organization-wide
+# --------------------------------------------------------------------------
+resource "aws_accessanalyzer_analyzer" "organization" {
+  analyzer_name = "organization-analyzer"
+  type          = "ORGANIZATION"
+}
