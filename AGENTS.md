@@ -1,4 +1,4 @@
-# Agent Instructions: org-security-services
+# Agent Instructions: org-aws-security-services
 
 ## Overview
 
